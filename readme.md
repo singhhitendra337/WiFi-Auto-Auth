@@ -5,6 +5,31 @@ This script automatically logs into Wi-Fi networks using pre-saved credentials a
 
 Ideal for schools, workplaces, or any location with recurring Wi-Fi logins, this script eliminates manual re-authentication and ensures effortless connectivity. It's fully customizable, works across different networks, and can even be automated on startup for a seamless experience.
 
+## **🚀 New: Web Dashboard**
+
+**Beautiful web-based monitoring interface with real-time statistics and interactive charts!**
+
+### **Dashboard Features**
+- 📊 Real-time statistics & success rates
+- 📈 Interactive time-based visualizations  
+- 🔍 Advanced filtering & search
+- 📱 Mobile-responsive design
+- 🔒 Secure authentication
+- ⚡ Auto-refresh every 30 seconds
+
+### **Quick Start**
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start dashboard
+python wifi_auto_login.py --dashboard
+
+# Access: http://127.0.0.1:8000 (admin/admin123)
+```
+
+**📖 Full documentation: [DASHBOARD.md](DASHBOARD.md)**
+
 ## **Logging Options**
 
 This application features a comprehensive professional logging system that provides detailed insights into login attempts, debugging information, and system status. The logging system supports multiple output destinations, configurable log levels, and automatic log rotation.
@@ -28,6 +53,9 @@ python wifi_auto_login.py --log-level DEBUG
 
 # View recent login attempts
 python wifi_auto_login.py --view-logs 10
+
+# Start the web dashboard
+python wifi_auto_login.py --dashboard
 
 # Disable file logging, only console output
 python wifi_auto_login.py --no-log-file
