@@ -10,24 +10,29 @@ import os
 # --- CONFIGURATION ---
 CONFIG_PATH = "config.json"
 
-# Error handling if config.json is missing
-if not os.path.exists(CONFIG_PATH):
-    raise FileNotFoundError(
-        "Missing config.json. Please copy config.example.json to config.json and fill in your details."
-    )
+def load_config():
+    """Load configuration file and return config dict"""
+    if not os.path.exists(CONFIG_PATH):
+        raise FileNotFoundError(
+            "Missing config.json. Please copy config.example.json to config.json and fill in your details."
+        )
+    
+    with open(CONFIG_PATH, "r") as f:
+        config = json.load(f)
+    
+    return config
 
-with open(CONFIG_PATH, "r") as f:
-    config = json.load(f)
-
-URL = config["wifi_url"]
-USERNAME = config["username"]
-PASSWORD = config["password"]
-PRODUCT_TYPE = config.get("product_type", "0")  # Default to "0" if not provided
+# Global variables - will be loaded when needed
+URL = None
+USERNAME = None
+PASSWORD = None
+PRODUCT_TYPE = None
 
 # --- DATABASE SETUP ---
 DB_NAME = "wifi_log.db"
 
 # Initialize logging
+from config.logging_config import setup_logging_from_env, get_logger
 setup_logging_from_env()
 logger = get_logger(__name__)
 
@@ -69,6 +74,14 @@ def extract_message(response_text):
 # --- MAIN WIFI LOGIN FUNCTION ---
 def wifi_login():
     """Perform the WiFi login request and log the result."""
+    # Load config when needed
+    config = load_config()
+    global URL, USERNAME, PASSWORD, PRODUCT_TYPE
+    URL = config["wifi_url"]
+    USERNAME = config["username"]
+    PASSWORD = config["password"]
+    PRODUCT_TYPE = config.get("product_type", "0")
+    
     a_value = str(int(datetime.datetime.now().timestamp()))  # Generate dynamic 'a' value
 
     payload = {
@@ -198,9 +211,9 @@ def clear_logs():
 
 def test_connection():
     """Tests if the login URL is reachable."""
-    # This URL should eventually come from a config file
-    url = "POST url from the inspect element" # The same URL from wifi_login()
-    print(f" testing connection to {url}...")
+    config = load_config()
+    url = config["wifi_url"]
+    print(f"🔗 Testing connection to {url}...")
     try:
         response = requests.head(url, timeout=5) # Use HEAD to be efficient
         if response.status_code == 200:
@@ -220,6 +233,27 @@ def run_setup_wizard():
     password = input("3. Enter your login password: ")
 
     print("\nSetup Complete!")
+
+def start_dashboard():
+    """Start the web dashboard server."""
+    try:
+        import subprocess
+        import sys
+        print("🚀 Starting WiFi Auto Auth Dashboard...")
+        print("📊 Dashboard will be available at: http://127.0.0.1:8000")
+        print("🔑 Default credentials: admin / admin123")
+        print("🛑 Press Ctrl+C to stop the server")
+        
+        # Start the dashboard server
+        subprocess.run([sys.executable, "dashboard.py"], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error starting dashboard: {e}")
+    except KeyboardInterrupt:
+        print("\n🛑 Dashboard server stopped.")
+    except ImportError:
+        print("❌ Dashboard dependencies not installed. Please run: pip install -r requirements.txt")
+    except FileNotFoundError:
+        print("❌ Dashboard server not found. Please ensure dashboard.py exists.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -254,21 +288,38 @@ if __name__ == "__main__":
         action='store_true', 
         help="Clear all login logs from the database."
     )
+    parser.add_argument(
+        '--dashboard', 
+        action='store_true', 
+        help="Start the web dashboard server for monitoring login attempts."
+    )
 
     args = parser.parse_args()
-    setup_database()  # Ensure the database is always set up
-
-    if args.login:
-        wifi_login()
-    elif args.view_logs is not None:
-        view_logs(args.view_logs)
-    elif args.setup:
-        run_setup_wizard() 
-    elif args.test:
-        test_connection()
-    elif args.clear_logs:
-        clear_logs()
+    
+    # For operations that don't need config, handle them first
+    if args.setup:
+        run_setup_wizard()
+    elif args.dashboard:
+        start_dashboard()
     else:
-        print("No arguments provided. Performing default login action.")
-        wifi_login()
-        view_logs(1)
+        # For operations that need database/config
+        try:
+            setup_database()  # Ensure the database is always set up
+            
+            if args.login:
+                wifi_login()
+            elif args.view_logs is not None:
+                view_logs(args.view_logs)
+            elif args.test:
+                test_connection()
+            elif args.clear_logs:
+                clear_logs()
+            else:
+                print("No arguments provided. Performing default login action.")
+                wifi_login()
+                view_logs(1)
+                
+        except FileNotFoundError as e:
+            print(f"❌ Configuration Error: {e}")
+            print("💡 Run 'python wifi_auto_login.py --setup' to configure the application.")
+            print("📖 Or copy config.example.json to config.json and edit it manually.")

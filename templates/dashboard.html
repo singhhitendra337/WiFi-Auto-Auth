@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Auto Auth Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link href="/static/dashboard.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-wifi"></i> WiFi Auto Auth Dashboard
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="bi bi-person-circle"></i> Welcome, {{ username }}
+                </span>
+                <button class="btn btn-outline-light btn-sm" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.total_attempts }}</h4>
+                                <p class="card-text">Total Attempts</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-bar-chart-fill fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.successful_attempts }}</h4>
+                                <p class="card-text">Successful</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-check-circle-fill fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.failed_attempts }}</h4>
+                                <p class="card-text">Failed</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-x-circle-fill fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.success_rate|round(1) }}%</h4>
+                                <p class="card-text">Success Rate</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-percent fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Filters Panel -->
+            <div class="col-md-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-funnel"></i> Filters
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="filterForm" class="row g-3">
+                            <div class="col-md-3">
+                                <label for="startDate" class="form-label">Start Date</label>
+                                <input type="datetime-local" class="form-control" id="startDate" name="start_date">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="endDate" class="form-label">End Date</label>
+                                <input type="datetime-local" class="form-control" id="endDate" name="end_date">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="statusFilter" class="form-label">Status</label>
+                                <select class="form-select" id="statusFilter" name="status_filter">
+                                    <option value="">All</option>
+                                    <option value="success">Success Only</option>
+                                    <option value="failed">Failed Only</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="limitResults" class="form-label">Limit</label>
+                                <select class="form-select" id="limitResults" name="limit">
+                                    <option value="25">25 results</option>
+                                    <option value="50" selected>50 results</option>
+                                    <option value="100">100 results</option>
+                                    <option value="200">200 results</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Apply Filters
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="clearFilters()">
+                                    <i class="bi bi-x-lg"></i> Clear
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Charts Section -->
+            <div class="col-md-8 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-graph-up"></i> Login Attempts Over Time
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="attemptsChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Success Rate Pie Chart -->
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-pie-chart"></i> Success Rate Distribution
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="successChart" width="200" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Login Attempts Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-table"></i> Recent Login Attempts
+                        </h5>
+                        <div class="badge bg-primary" id="attemptCount">{{ recent_attempts|length }} results</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="attemptsTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">Timestamp</th>
+                                        <th scope="col">Username</th>
+                                        <th scope="col">Session ID</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Message</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attemptsTableBody">
+                                    {% for attempt in recent_attempts %}
+                                    <tr>
+                                        <td>
+                                            <span class="text-muted small">{{ attempt.timestamp }}</span>
+                                        </td>
+                                        <td>
+                                            <i class="bi bi-person"></i> {{ attempt.username }}
+                                        </td>
+                                        <td>
+                                            <code class="small">{{ attempt.a }}</code>
+                                        </td>
+                                        <td>
+                                            {% if attempt.response_status == "200" %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> {{ attempt.response_status }}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-x-circle"></i> {{ attempt.response_status }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-truncate" style="max-width: 300px;" title="{{ attempt.response_message }}">
+                                            {{ attempt.response_message }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if stats.last_attempt %}
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Last Activity:</strong> {{ stats.last_attempt }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Global variables
+        let attemptsChart = null;
+        let successChart = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            loadChartData();
+            loadSuccessChartData();
+            setupEventListeners();
+        });
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('filterForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                applyFilters();
+            });
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            // Login attempts over time chart
+            const attemptsCtx = document.getElementById('attemptsChart').getContext('2d');
+            attemptsChart = new Chart(attemptsCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Successful',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1
+                    }, {
+                        label: 'Failed',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Login Attempts (Last 7 Days)'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Success rate pie chart
+            const successCtx = document.getElementById('successChart').getContext('2d');
+            successChart = new Chart(successCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Successful', 'Failed'],
+                    datasets: [{
+                        data: [0, 0], // Will be loaded via AJAX
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(255, 99, 132, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgb(75, 192, 192)',
+                            'rgb(255, 99, 132)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Success vs Failure Rate'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load chart data from API
+        async function loadChartData() {
+            try {
+                const response = await fetch('/api/hourly-stats?days=7');
+                const data = await response.json();
+                
+                const labels = data.hourly_stats.map(item => {
+                    const date = new Date(item.hour + ':00:00');
+                    return date.toLocaleDateString() + ' ' + date.getHours() + ':00';
+                });
+                
+                const successData = data.hourly_stats.map(item => item.successful_attempts);
+                const failedData = data.hourly_stats.map(item => item.failed_attempts);
+                
+                attemptsChart.data.labels = labels;
+                attemptsChart.data.datasets[0].data = successData;
+                attemptsChart.data.datasets[1].data = failedData;
+                attemptsChart.update();
+                
+            } catch (error) {
+                console.error('Error loading chart data:', error);
+            }
+        }
+
+        // Load success chart data from API
+        async function loadSuccessChartData() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                successChart.data.datasets[0].data = [data.successful_attempts, data.failed_attempts];
+                successChart.update();
+                
+            } catch (error) {
+                console.error('Error loading success chart data:', error);
+            }
+        }
+
+        // Apply filters
+        async function applyFilters() {
+            const formData = new FormData(document.getElementById('filterForm'));
+            const params = new URLSearchParams();
+            
+            for (const [key, value] of formData.entries()) {
+                if (value) {
+                    params.append(key, value);
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/attempts?' + params.toString());
+                const data = await response.json();
+                
+                updateAttemptsTable(data.attempts);
+                document.getElementById('attemptCount').textContent = data.attempts.length + ' results';
+                
+            } catch (error) {
+                console.error('Error applying filters:', error);
+                alert('Error applying filters. Please try again.');
+            }
+        }
+
+        // Update attempts table
+        function updateAttemptsTable(attempts) {
+            const tbody = document.getElementById('attemptsTableBody');
+            tbody.innerHTML = '';
+            
+            attempts.forEach(attempt => {
+                const row = document.createElement('tr');
+                const statusBadge = attempt.response_status == '200' 
+                    ? `<span class="badge bg-success"><i class="bi bi-check-circle"></i> ${attempt.response_status}</span>`
+                    : `<span class="badge bg-danger"><i class="bi bi-x-circle"></i> ${attempt.response_status}</span>`;
+                
+                row.innerHTML = `
+                    <td><span class="text-muted small">${attempt.timestamp}</span></td>
+                    <td><i class="bi bi-person"></i> ${attempt.username}</td>
+                    <td><code class="small">${attempt.a}</code></td>
+                    <td>${statusBadge}</td>
+                    <td class="text-truncate" style="max-width: 300px;" title="${attempt.response_message}">
+                        ${attempt.response_message}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('filterForm').reset();
+            location.reload();
+        }
+
+        // Refresh data
+        function refreshData() {
+            location.reload();
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(function() {
+            loadChartData();
+            loadSuccessChartData();
+            // Optionally refresh table data as well
+            applyFilters();
+        }, 30000);
+    </script>
+</body>
+</html>

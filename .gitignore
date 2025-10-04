@@ -7,6 +7,9 @@ wifi_auto_auth.log*
 *.db
 wifi_log.db
 
+# Configuration files (personal)
+config.json
+
 # Python
 __pycache__/
 *.pyc
